@@ -1,0 +1,236 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>המטבח של שגיא</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5e8d3;
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+            text-align: right;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fffbf0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #5c4033;
+            text-align: center;
+        }
+        .button {
+            background-color: #8b6f47;
+            color: #fffbf0;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: background-color 0.3s, opacity 0.3s;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        .button:hover {
+            background-color: #7a5e3c;
+        }
+        .button.inactive {
+            background-color: #c2b280;
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .input-container {
+            display: none;
+            margin: 20px 0;
+        }
+        .input-container.active {
+            display: block;
+        }
+        input[type="number"] {
+            padding: 8px;
+            width: 100px;
+            margin-left: 10px;
+            border: 1px solid #d2b48c;
+            border-radius: 4px;
+            background-color: #fffbf0;
+            -webkit-appearance: none;
+        }
+        .ingredients-list {
+            display: none;
+            margin-top: 20px;
+        }
+        .ingredients-list.active {
+            display: block;
+        }
+        .ingredients-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .ingredients-list li {
+            background: #f8edd9;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            color: #5c4033;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>המטבח של שגיא</h1>
+        <button id="rollsButton" class="button" onclick="showInput('rolls')" ontouchstart="showInput('rolls')">לחמניות</button>
+        <button id="pizzaButton" class="button" onclick="showInput('pizza')" ontouchstart="showInput('pizza')">פיצה נפוליטנית</button>
+
+        <div id="rollsInputContainer" class="input-container">
+            <label for="rollCount">כמות לחמניות:</label>
+            <input type="number" id="rollCount" min="1" value="1">
+            <button class="button" onclick="calculateRolls()" ontouchstart="calculateRolls()">בוא נכין</button>
+        </div>
+        <div id="rollsIngredientsList" class="ingredients-list">
+            <h2>מצרכים נדרשים ללחמניות:</h2>
+            <ul id="rollsIngredients"></ul>
+        </div>
+
+        <div id="pizzaInputContainer" class="input-container">
+            <label for="pizzaCount">כמות פיצות:</label>
+            <input type="number" id="pizzaCount" min="1" value="1">
+            <button class="button" onclick="calculatePizza()" ontouchstart="calculatePizza()">בוא נכין</button>
+        </div>
+        <div id="pizzaIngredientsList" class="ingredients-list">
+            <h2>מצרכים נדרשים לפיצה נפוליטנית:</h2>
+            <ul id="pizzaIngredients"></ul>
+        </div>
+    </div>
+
+    <script>
+        function showInput(type) {
+            document.querySelectorAll('.button').forEach(button => {
+                button.classList.remove('inactive');
+            });
+            if (type === 'rolls') {
+                document.getElementById('pizzaButton').classList.add('inactive');
+            } else if (type === 'pizza') {
+                document.getElementById('rollsButton').classList.add('inactive');
+            }
+            document.querySelectorAll('.input-container').forEach(container => {
+                container.classList.remove('active');
+            });
+            document.querySelectorAll('.ingredients-list').forEach(list => {
+                list.classList.remove('active');
+            });
+            document.getElementById(type + 'InputContainer').classList.add('active');
+        }
+
+        function calculateRolls() {
+            const rollCount = parseInt(document.getElementById('rollCount').value) || 1;
+            const rollWeight = 120;
+            const totalWeight = rollCount * rollWeight;
+            const baseWeight = 1000 + 18 + 80 + 130 + 530 + 27;
+            const scale = totalWeight / baseWeight;
+            const ingredients = {
+                flour: 1000 * scale,
+                yeast: 18 * scale,
+                sugar: 80 * scale,
+                oil: 130 * scale,
+                water: 530 * scale,
+                salt: 27 * scale
+            };
+
+            const ingredientsList = document.getElementById('rollsIngredients');
+            ingredientsList.innerHTML = `
+                <li>${ingredients.flour.toFixed(0)} גרם קמח</li>
+                <li>${ingredients.yeast.toFixed(1)} גרם שמרים יבשים</li>
+                <li>${ingredients.sugar.toFixed(0)} גרם סוכר</li>
+                <li>${ingredients.oil.toFixed(0)} גרם שמן</li>
+                <li>${ingredients.water.toFixed(0)} גרם מים</li>
+                <li>${ingredients.salt.toFixed(1)} גרם מלח</li>
+            `;
+            document.getElementById('rollsIngredientsList').classList.add('active');
+        }
+
+        function calculatePizza() {
+            const pizzaCount = parseInt(document.getElementById('pizzaCount').value) || 1;
+            const pizzaWeight = 305;
+            const totalWeight = pizzaCount * pizzaWeight;
+            const basePizzas = 6;
+            const scale = pizzaCount / basePizzas;
+            const biga = {
+                flour: 527 * scale,
+                water: 237 * scale,
+                yeast: 8 * scale
+            };
+            const dough = {
+                flour00: 427 * scale,
+                flourTipo1: 100 * scale,
+                water: 501 * scale,
+                salt: 32 * scale
+            };
+
+            const ingredientsList = document.getElementById('pizzaIngredients');
+            ingredientsList.innerHTML = `
+                <li><strong>לביגה (בצק מקדים):</strong></li>
+                <li>${biga.flour.toFixed(0)} גרם קמח סופר נובולה</li>
+                <li>${biga.water.toFixed(0)} גרם מים</li>
+                <li>${biga.yeast.toFixed(1)} גרם שמרים טריים (קובייה)</li>
+                <li>הערה: יש להכין את הביגה ולהכניס למקרר ל-24 שעות</li>
+                <li><strong>לכלל הבצק (לאחר 24 שעות):</strong></li>
+                <li>כל כמות הביגה שהוכנה</li>
+                <li>${dough.flour00.toFixed(0)} גרם קמח 00</li>
+                <li>${dough.flourTipo1.toFixed(0)} גרם קמח טיפו 1</li>
+                <li>${dough.water.toFixed(0)} גרם מים קרים</li>
+                <li>${dough.salt.toFixed(1)} גרם מלח</li>
+            `;
+            document.getElementById('pizzaIngredientsList').classList.add('active');
+        }
+    </script>
+</body>
+</html>
